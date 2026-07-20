@@ -13,13 +13,13 @@
 
 ```
 Opus 4.8 | v2.1.215 | effort:high | total tokens:12.3k | 7d:20%
-   ctx:45% [████████░░░░░░░░] 12.3k/1.0M | usage:20% [███░░░░░░░░░░░░░] reset:2h13m
+   ctx:45% [████████░░░░░░░░] 12.3k/1.0M | usage:20% [███░░░░░░░░░░░░░] reset:15:32
 ```
 
 - **第一行**：模型名称、Claude Code 版本号、reasoning effort 等级、当前上下文中累计的 token 数（自动换算为 k/M）、最近 7 天速率限制使用百分比。
-- **第二行**：两个独立的进度条 —— `ctx` 是当前对话上下文窗口占用百分比及已用/总量（k/M 格式），`usage` 是最近 5 小时速率限制使用百分比；`usage` 进度条后面的 `reset:` 显示距离这个 5 小时窗口重置还剩多少时间（格式如 `2h13m` / `47m` / `3d1h`，已重置或数据缺失时显示 `0m` / `--`）。
+- **第二行**：两个独立的进度条 —— `ctx` 是当前对话上下文窗口占用百分比及已用/总量（k/M 格式），`usage` 是最近 5 小时速率限制使用百分比；`usage` 进度条后面的 `reset:` 显示这个 5 小时窗口重置的实际时刻（本地时区，24 小时制 `HH:MM`，如 `15:32`；数据缺失时显示 `--`）。这里用的是墙钟时间而不是剩余时长，因为状态栏只在刷新时才会重新执行脚本，倒计时会停在上次刷新的数值上显得不准，而固定时刻不受刷新频率影响。
 
-每个字段使用不同的 256 色 ANSI 颜色区分（模型=蓝色、版本=黑色、effort=紫色、tokens=绿色、7d=橙色、ctx 进度条=青色、usage 进度条=品红色、reset 倒计时=金色），字段之间用暗色的 `|` 分隔，在浅色和深色终端主题下都可读（版本号字段为纯黑色，深色终端背景下可能对比度较低，如需更换成深灰色可自行调整脚本中的 `VERSION_C` 变量）。
+每个字段使用不同的 256 色 ANSI 颜色区分（模型=蓝色、版本=黑色、effort=紫色、tokens=绿色、7d=橙色、ctx 进度条=青色、usage 进度条=品红色、reset 重置时刻=金色），字段之间用暗色的 `|` 分隔，在浅色和深色终端主题下都可读（版本号字段为纯黑色，深色终端背景下可能对比度较低，如需更换成深灰色可自行调整脚本中的 `VERSION_C` 变量）。
 
 ## 依赖
 
@@ -131,7 +131,7 @@ Windows 上没有原生符号链接命令行为一致的等价物（需要管理
 
 两个脚本顶部都有一组变量集中管理外观：
 
-- `MODEL_C` / `VERSION_C` / `EFFORT_C` / `TOKENS_C` / `WEEK_C` / `CTX_C` / `USAGE_C` / `RESET_TIME_C`：各字段的 256 色 ANSI 颜色代码（`RESET_TIME_C` 是 usage 后面 reset 倒计时的颜色）
+- `MODEL_C` / `VERSION_C` / `EFFORT_C` / `TOKENS_C` / `WEEK_C` / `CTX_C` / `USAGE_C` / `RESET_TIME_C`：各字段的 256 色 ANSI 颜色代码（`RESET_TIME_C` 是 usage 后面 reset 重置时刻的颜色）
 - `bar_len`（PowerShell 版为 `$barLen`）：进度条长度（默认 16 个字符块）
 
 直接修改这些变量即可调整颜色和样式，两个版本的变量命名和含义保持一致。
@@ -144,6 +144,6 @@ Windows 上没有原生符号链接命令行为一致的等价物（需要管理
 - `context_window.total_input_tokens` / `total_output_tokens` / `used_percentage` / `context_window_size`
 - `rate_limits.seven_day.used_percentage`（7d）
 - `rate_limits.five_hour.used_percentage`（usage 进度条）
-- `rate_limits.five_hour.resets_at`（Unix 纪元秒，用于计算 reset 剩余时间）
+- `rate_limits.five_hour.resets_at`（Unix 纪元秒，转换为本地时区显示为 reset 时刻）
 
 其中 `rate_limits` 相关字段在没有可用数据时会缺失，脚本对此已做兜底（显示 `--` / `?%` / `0m`）。

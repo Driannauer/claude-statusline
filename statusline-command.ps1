@@ -1,7 +1,7 @@
 #requires -Version 5.1
 # Claude Code statusline (Windows PowerShell 5.1 / PowerShell 7+)
 # Line 1: model | version | effort | total tokens | 7d usage   (each field its own color)
-# Line 2: ctx bar | usage bar + reset countdown   (two bars; reset = time left in 5h window)
+# Line 2: ctx bar | usage bar + reset time   (two bars; reset = wall-clock time the 5h window resets)
 
 $ErrorActionPreference = 'SilentlyContinue'
 $Culture = [System.Globalization.CultureInfo]::InvariantCulture
@@ -20,7 +20,7 @@ $TOKENS_C = 28   # green
 $WEEK_C   = 166  # orange
 $CTX_C    = 30   # teal
 $USAGE_C  = 125  # magenta/pink
-$RESET_TIME_C = 178  # gold (5h usage-window reset countdown)
+$RESET_TIME_C = 178  # gold (5h usage-window reset time)
 
 $barLen = 16
 
@@ -57,19 +57,6 @@ function MakeBar($pct, [int]$len) {
     return ('█' * $filled) + ('░' * $empty)
 }
 
-# Format a duration in seconds as a compact countdown: 3d1h / 2h13m / 47m / 0m
-function HumanDur($sec) {
-    if ($null -eq $sec) { return '--' }
-    $s = [int64]$sec
-    if ($s -le 0) { return '0m' }
-    $d = [int][math]::Floor($s / 86400)
-    $h = [int][math]::Floor(($s % 86400) / 3600)
-    $m = [int][math]::Floor(($s % 3600) / 60)
-    if ($d -gt 0) { return "${d}d${h}h" }
-    elseif ($h -gt 0) { return "${h}h${m}m" }
-    else { return "${m}m" }
-}
-
 $model = $json.model.display_name
 if (-not $model) { $model = 'Claude' }
 $version = $json.version
@@ -99,10 +86,9 @@ $usageBar = MakeBar $fivePct $barLen
 if ($null -ne $usedPct) { $ctxStr = "$(Fmt0 $usedPct)%" } else { $ctxStr = '?%' }
 if ($null -ne $fivePct) { $usageStr = "$(Fmt0 $fivePct)%" } else { $usageStr = '?%' }
 
-# Remaining time until the 5-hour usage window resets
+# Wall-clock time (local timezone) when the 5-hour usage window resets
 if ($null -ne $fiveReset) {
-    $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-    $resetStr = HumanDur ([int64]$fiveReset - $now)
+    $resetStr = [DateTimeOffset]::FromUnixTimeSeconds([int64]$fiveReset).ToLocalTime().ToString('HH:mm')
 } else {
     $resetStr = '--'
 }
