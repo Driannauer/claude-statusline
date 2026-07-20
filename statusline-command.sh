@@ -1,7 +1,7 @@
 #!/bin/bash
 # Claude Code statusline
 # Line 1: model | version | effort | total tokens | 7d usage   (each field its own color)
-# Line 2: ctx bar | usage bar   (two separate progress bars)
+# Line 2: ctx bar | usage bar + reset countdown   (two bars; reset = time left in 5h window)
 
 input=$(cat)
 
@@ -29,6 +29,8 @@ used_tok=$in_tok
 
 # 5-hour rate limit usage ("usage" bar)
 five_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
+# 5-hour window reset time (Unix epoch seconds; may be absent)
+five_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
 
 # ---- Formatting helpers ----
 
@@ -61,6 +63,17 @@ make_bar() {
   printf "%s" "$bar"
 }
 
+# Format a duration in seconds as a compact countdown: 3d1h / 2h13m / 47m / 0m
+human_dur() {
+  local s=$1
+  [ -z "$s" ] && { printf -- "--"; return; }
+  if [ "$s" -le 0 ]; then printf "0m"; return; fi
+  local d=$(( s / 86400 )) h=$(( (s % 86400) / 3600 )) m=$(( (s % 3600) / 60 ))
+  if [ "$d" -gt 0 ]; then printf "%dd%dh" "$d" "$h"
+  elif [ "$h" -gt 0 ]; then printf "%dh%dm" "$h" "$m"
+  else printf "%dm" "$m"; fi
+}
+
 # 256-color helper (readable-ish on both light and dark terminal themes: mid-tone, non-white/black)
 color() {
   printf "\033[38;5;%sm%s\033[0m" "$1" "$2"
@@ -76,6 +89,7 @@ TOKENS_C=28    # green
 WEEK_C=166     # orange
 CTX_C=30       # teal
 USAGE_C=125    # magenta/pink
+RESET_TIME_C=178 # gold (5h usage-window reset countdown)
 
 used_h=$(human "$used_tok")
 total_h=$(human "$ctx_size")
@@ -97,6 +111,15 @@ else
   usage_str="?%"
 fi
 
+# Remaining time until the 5-hour usage window resets
+if [ -n "$five_reset" ]; then
+  now=$(date +%s)
+  reset_int=$(printf "%.0f" "$five_reset")
+  reset_str=$(human_dur "$(( reset_int - now ))")
+else
+  reset_str="--"
+fi
+
 # ---- Build line 1 ----
 sep="${DIM} | ${RESET}"
 
@@ -109,9 +132,9 @@ if [ -n "$effort" ]; then
 fi
 line1="${line1}${sep}$(color "$TOKENS_C" "total tokens:$total_tok_h")${sep}$(color "$WEEK_C" "7d:$week_str")"
 
-# ---- Build line 2 (two separate bars) ----
+# ---- Build line 2 (two separate bars + reset countdown) ----
 ctx_part="$(color "$CTX_C" "ctx:$ctx_str [$ctx_bar] $used_h/$total_h")"
-usage_part="$(color "$USAGE_C" "usage:$usage_str [$usage_bar]")"
+usage_part="$(color "$USAGE_C" "usage:$usage_str [$usage_bar]") $(color "$RESET_TIME_C" "reset:$reset_str")"
 
 line2="   ${ctx_part}${sep}${usage_part}"
 
